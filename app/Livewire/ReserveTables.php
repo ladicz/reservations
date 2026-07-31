@@ -3,9 +3,10 @@
 namespace App\Livewire;
 
 use App\Services\ReservationService;
-use DateTime;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Reactive;
@@ -18,6 +19,8 @@ class ReserveTables extends Component
 
     #[Reactive]
     public $startTime;
+
+    public int $durationInMinutes = 90;
 
     #[Reactive]
     public Collection $tables;
@@ -40,6 +43,12 @@ class ReserveTables extends Component
         $this->tableIds = [];
     }
 
+    #[On('reservation-duration-updated')]
+    public function updateDurationInMinutes(int $durationInMinutes): void
+    {
+        $this->durationInMinutes = $durationInMinutes;
+    }
+
     /**
      * Process reservation creation request
      *
@@ -48,10 +57,31 @@ class ReserveTables extends Component
      */
     public function save(ReservationService $service): void
     {
-        $service->createReservation(Auth::user(), $this->tableIds, new DateTime($this->startDate.' '.$this->startTime));
+        $this->validate();
+
+        $service->createReservation(
+            Auth::user(),
+            $this->tableIds,
+            Carbon::createFromFormat('d.m.Y H:i', $this->startDate.' '.$this->startTime),
+            $this->durationInMinutes
+        );
 
         session()->flash('success', __('Reservation created successfully'));
         $this->redirect('/reservations');
+    }
+
+    protected function rules(): array
+    {
+        return [
+            'startDate' => [
+                'required',
+                Rule::date()->format('d.m.Y')->afterOrEqual(today()),
+            ],
+            'startTime' => ['required', 'date_format:H:i'],
+            'durationInMinutes' => ['required', 'integer', 'in:90,120,180'],
+            'tableIds' => ['required', 'array', 'min:1'],
+            'tableIds.*' => ['bail', 'integer', 'distinct', 'exists:tables,id'],
+        ];
     }
 
     /**

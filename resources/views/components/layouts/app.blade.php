@@ -13,8 +13,8 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="text-black bg-gray-400">
-        <header class="bg-gray-700 text-blue-400 flex justify-between">
-            <nav class="max-w-screen-xxl w-full flex items-center justify-start gap-4 p-4 whitespace-nowrap">
+        <header class="bg-gray-700 text-blue-400">
+            <nav class="mx-auto flex w-full max-w-screen-2xl flex-wrap items-center gap-x-4 gap-y-2 p-4">
                 <x-nav-item href="/">
                         {{__('Tables reservation')}}
                 </x-nav-item>
@@ -22,14 +22,17 @@
                     <x-nav-item href="/reservations">{{__('My reservations')}}</x-nav-item>
                 @endauth
 
-                <div class="flex items-center justify-end gap-4 w-full mr-2">
+                <div class="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-4 gap-y-2">
                     @guest
                         <x-nav-item href="/register">{{__('Register')}}</x-nav-item>
                         <x-nav-item href="/login">{{__('Login')}}</x-nav-item>
                     @endguest
                     @auth
                         <span class="pr-2">{{__('Logged in as ') . Auth::user()->email}}</span>
-                        <x-nav-item href="/logout">{{__('Logout')}}</x-nav-item>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="hover:underline cursor-pointer">{{__('Logout')}}</button>
+                        </form>
                     @endauth
                 </div>
             </nav>

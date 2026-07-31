@@ -4,11 +4,10 @@ namespace App\Services;
 
 use App\Exceptions\InvalidTablesException;
 use App\Exceptions\ReservationExistsException;
-use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use App\Models\Reservation;
 use App\Models\Table;
 use App\Models\User;
-use DateTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -19,48 +18,52 @@ class ReservationService
      *
      * @param User $user User instance
      * @param array $tableIds IDs of tables to be reserved
-     * @param DateTime $from Reservation start time
+    * @param CarbonInterface $from Reservation start time
+    * @param int $durationInMinutes Reservation duration in minutes
      * @return Reservation Created reservation instance
      * @throws ReservationExistsException in case any of tabnles in $tableIds is already reserved
      */
-    public function createReservation(User $user, array $tableIds, DateTime $from): Reservation
+    public function createReservation(
+        User $user,
+        array $tableIds,
+        CarbonInterface $from,
+        int $durationInMinutes
+    ): Reservation
     {
-        $to = Carbon::parse($from)->endOfDay();
+        $to = $from->copy()->addMinutes($durationInMinutes);
 
-        // validate table IDs
-        $cntTable = Table::whereIn('id', $tableIds)->lockForUpdate()->count();
-        if($cntTable !== count($tableIds))
-        {
-            throw new InvalidTablesException('One or more table IDs are invalid.');
-        }
+        return DB::transaction(function () use ($user, $tableIds, $from, $to) {
+            // Lock selected tables in a stable order before checking conflicts.
+            $tableCount = Table::whereIn('id', $tableIds)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->count();
 
-        // test, whether there are any reservations ending after start
-        // and starting before end of newly creating reservation
-        $reservationCnt = Reservation::where('to','>=', $from)
-            ->where('from', '<=', $to)
-            ->whereHas('tables', function (Builder $query) use($tableIds) {
-                $query->whereIn('tables.id',  $tableIds);
-            })->count();
+            if ($tableCount !== count($tableIds)) {
+                throw new InvalidTablesException('One or more table IDs are invalid.');
+            }
 
-        if($reservationCnt === 0)
-        {
-            // atomically creates reservation and attach reserved tables
-            $reservation = DB::transaction(function () use ($user, $from, $to, $tableIds) {
-                $reservation = Reservation::create([
-                    'user_id' => $user->id,
-                    'from' => $from,
-                    'to' => $to,
-                ]);
+            $reservationExists = Reservation::where('to', '>', $from)
+                ->where('from', '<', $to)
+                ->whereHas('tables', function (Builder $query) use ($tableIds) {
+                    $query->whereIn('tables.id', $tableIds);
+                })
+                ->exists();
 
-                $reservation->tables()->attach($tableIds);
-                return $reservation;
-            });
+            if ($reservationExists) {
+                throw new ReservationExistsException();
+            }
 
-        } else {
-            throw new ReservationExistsException();
-        }
+            $reservation = Reservation::create([
+                'user_id' => $user->id,
+                'from' => $from,
+                'to' => $to,
+            ]);
 
-        return $reservation;
+            $reservation->tables()->attach($tableIds);
+
+            return $reservation;
+        });
     }
 
     /**

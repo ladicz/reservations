@@ -4,7 +4,6 @@ namespace App\Livewire;
 
 use App\Services\TableService;
 use Carbon\Carbon;
-use DateTime;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -18,9 +17,13 @@ class TablesIndex extends Component
     // reservation times for selectbox
     public array $times;
 
+    // reservation durations in minutes
+    public array $durations = [90, 120, 180];
+
     //datum a cas rezervace
     public ?string $startDate;
     public ?string $startTime;
+    public int $durationInMinutes = 90;
 
     /**
      * Handler of change on class property startTime. Loads available tables.
@@ -29,7 +32,10 @@ class TablesIndex extends Component
     {
         if(empty($this->startDate))
             $this->startDate = now()->format('d.m.Y');
-        $this->tables = $service->getAvaliableTables((new DateTime($this->startDate.' '.$value)));
+        $this->tables = $service->getAvaliableTables(
+            Carbon::createFromFormat('d.m.Y H:i', $this->startDate.' '.$value),
+            $this->durationInMinutes
+        );
 
         // for auth user request to delete
         if(Auth::check())
@@ -42,11 +48,33 @@ class TablesIndex extends Component
     public function updatedStartDate(TableService $service,$value)
     {
         if(!empty($this->startTime))
-            $this->tables = $service->getAvaliableTables((new DateTime($value.' '.$this->startTime)));
+            $this->tables = $service->getAvaliableTables(
+                Carbon::createFromFormat('d.m.Y H:i', $value.' '.$this->startTime),
+                $this->durationInMinutes
+            );
 
         // pro pro prihlaseneho uzivatele odeslu event pro smazani rezervacniho formu
         if(Auth::check())
             $this->dispatch('clear-tables-form');
+    }
+
+    /**
+     * Handler of change on reservation duration. Loads available tables.
+     */
+    public function updatedDurationInMinutes(TableService $service): void
+    {
+        if (!empty($this->startDate) && !empty($this->startTime)) {
+            $this->tables = $service->getAvaliableTables(
+                Carbon::createFromFormat('d.m.Y H:i', $this->startDate.' '.$this->startTime),
+                $this->durationInMinutes
+            );
+        }
+
+        if (Auth::check()) {
+            $this->dispatch('clear-tables-form');
+        }
+
+        $this->dispatch('reservation-duration-updated', durationInMinutes: $this->durationInMinutes);
     }
 
     public function mount(?string $startTime = null)

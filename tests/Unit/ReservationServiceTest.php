@@ -25,12 +25,13 @@ class ReservationServiceTest extends TestCase
 
         $this->assertDatabaseCount('reservations', 0);
 
-        $reservation = $service->createReservation($user,$tableIds,$fromDate);
+        $reservation = $service->createReservation($user, $tableIds, $fromDate, 90);
 
         // reserved tables count corresponds to count of input table ids
         $this->assertEquals($reservation->tables->count(), count($tableIds));
 
         $this->assertEquals($reservation->from->format('Ymd H:i'), $fromDate->format('Ymd H:i'));
+        $this->assertEquals($reservation->to->format('Ymd H:i'), $fromDate->copy()->addMinutes(90)->format('Ymd H:i'));
 
         $this->assertDatabaseCount('reservations', 1);
         $this->assertDatabaseCount('reserved_table',3);
@@ -52,12 +53,25 @@ class ReservationServiceTest extends TestCase
         $tableIds = $tables->pluck('id')->toArray();
 
         $this->assertDatabaseCount('reservations', 0);
-        $service->createReservation($user,$tableIds,now());
+        $service->createReservation($user, $tableIds, now(), 90);
         $this->assertDatabaseCount('reservations', 1);
 
         $this->assertThrows(function() use($service, $user, $tableIds){
-            $service->createReservation($user,$tableIds,now());
+            $service->createReservation($user, $tableIds, now(), 90);
         },ReservationExistsException::class);
+    }
+
+    public function test_user_can_create_back_to_back_reservations_for_the_same_table(): void
+    {
+        $service = new ReservationService();
+        $user = User::factory()->create();
+        $table = Table::factory()->create();
+        $from = now()->startOfDay()->addHours(11);
+
+        $service->createReservation($user, [$table->id], $from, 90);
+        $service->createReservation($user, [$table->id], $from->copy()->addMinutes(90), 120);
+
+        $this->assertDatabaseCount('reservations', 2);
     }
 
     public function test_delete_reservation_and_all_reserved_tables_are_free()

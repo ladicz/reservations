@@ -74,6 +74,34 @@ class TablesIndexTest extends TestCase
             ->assertDispatched('clear-tables-form');
     }
 
+    public function test_duration_change_reloads_available_tables(): void
+    {
+        $user = User::factory()->create();
+        $table = Table::factory()->create();
+        $from = now()->startOfDay()->addHours(11);
+
+        Reservation::factory()
+            ->hasAttached($table)
+            ->create([
+                'user_id' => $user->id,
+                'from' => $from->copy()->addMinutes(120),
+                'to' => $from->copy()->addMinutes(210),
+            ]);
+
+        Livewire::test(TablesIndex::class)
+            ->set('startDate', $from->format('d.m.Y'))
+            ->set('startTime', $from->format('H:i'))
+            ->set('durationInMinutes', 90)
+            ->assertSet('durationInMinutes', 90)
+            ->assertViewHas('tables', function ($tables) use ($table) {
+                return $tables->contains('id', $table->id);
+            })
+            ->set('durationInMinutes', 180)
+            ->assertViewHas('tables', function ($tables) use ($table) {
+                return ! $tables->contains('id', $table->id);
+            });
+    }
+
     public function test_reservation_message_visible_on_empty_time_input(): void
     {
        Livewire::test(TablesIndex::class)

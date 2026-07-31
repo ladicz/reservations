@@ -6,10 +6,10 @@
             <table class="w-full text-sm rounded-sm overflow-hidden">
                 <thead class="bg-blue-800 text-gray-200">
                     <tr class>
-                        <th class="p-2 w-5/12 text-left">{{__('Stůl')}}</th>
-                        <th class="p-2 w-4/12 text-left">{{__('Počet míst')}}</th>
+                        <th class="p-2 w-5/12 text-left">{{__('Table')}}</th>
+                        <th class="p-2 w-4/12 text-left">{{__('Number of seats')}}</th>
                         @auth
-                            <th class="w-3/12 text-right pr-2">{{__('Rezervovat')}}</th>
+                            <th class="w-3/12 text-right pr-2">{{__('Reserve')}}</th>
                         @endauth
 
                     </tr>

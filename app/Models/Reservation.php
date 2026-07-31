@@ -19,7 +19,8 @@ class Reservation extends Model
     protected function casts()
     {
         return [
-            'from' => 'datetime'
+            'from' => 'datetime',
+            'to' => 'datetime',
         ];
     }
 

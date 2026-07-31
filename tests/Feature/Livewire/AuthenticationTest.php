@@ -6,6 +6,7 @@ use App\Livewire\Authentication;
 use App\Livewire\TablesIndex;
 use App\Models\Table;
 use App\Models\User;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Livewire\Livewire;
@@ -83,10 +84,22 @@ class AuthenticationTest extends TestCase
 
         $this->actingAs($user);
 
-        $response = $this->get('/logout');
+        $response = $this->post('/logout');
 
         $response->assertRedirect('/');
 
         $this->assertGuest();
+    }
+
+    public function test_logout_rejects_get_requests(): void
+    {
+        $user = User::factory()->create();
+
+        $this->withoutExceptionHandling();
+        $this->expectException(MethodNotAllowedHttpException::class);
+
+        $this->actingAs($user)->get('/logout');
+
+        $this->assertAuthenticatedAs($user);
     }
 }

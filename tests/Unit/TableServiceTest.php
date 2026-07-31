@@ -17,7 +17,7 @@ class TableServiceTest extends TestCase
     {
         $service = new TableService();
         Table::factory(2)->create();
-        $tables = $service->getAvaliableTables(now(), 2);
+        $tables = $service->getAvaliableTables(now(), 90);
         $this->assertEquals($tables->count(),2);
     }
 
@@ -36,10 +36,29 @@ class TableServiceTest extends TestCase
 
         $service = new TableService();
 
-        $tables = $service->getAvaliableTables(now(), 1);
+        $tables = $service->getAvaliableTables(now(), 90);
 
         $this->assertEquals($tables->count(), 1);
         $this->assertEquals($tables->first()->id, $table2->id);
 
+    }
+
+    public function test_service_returns_table_when_previous_reservation_ends_at_requested_start(): void
+    {
+        $user = User::factory()->create();
+        $table = Table::factory()->create();
+        $from = now()->startOfDay()->addHours(11);
+
+        Reservation::factory()
+            ->hasAttached($table)
+            ->create([
+                'user_id' => $user->id,
+                'from' => $from,
+                'to' => $from->copy()->addMinutes(90),
+            ]);
+
+        $tables = (new TableService())->getAvaliableTables($from->copy()->addMinutes(90), 120);
+
+        $this->assertTrue($tables->contains($table));
     }
 }
